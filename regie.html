@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Regie werksessie</title>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --soft:#fdf9f6; --navy:#323c5a; --text:#2d3142; --muted:#6b7180; --line:#e7e3e8;
+    --kaart:#fbf6f2; --kaart-rand:#ece3dc;
+    --st-ingeregeld:#2f9e5b; --st-niet_ingeregeld:#ec7a1c; --st-wens:#f5c518; --st-leeg:#ffffff; --st-nvt:#9aa1ab;
+    --r:12px; --font:"Aptos","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);color:var(--text);background:var(--bg);font-size:16px;line-height:1.45}
+  header{background:var(--navy);color:#fff;padding:12px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+  header h1{font-size:1.1rem;margin:0}
+  header .rechts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  main{max-width:1400px;margin:0 auto;padding:16px 20px 60px}
+  button,select,input{font:inherit}
+  button{border:0;border-radius:10px;padding:10px 14px;min-height:44px;cursor:pointer;font-weight:650}
+  .knop{background:#eef1f8;color:var(--navy)}
+  .knop.licht{background:rgba(255,255,255,.15);color:#fff}
+  .knop.groot{font-size:1.05rem;padding:12px 20px}
+  .open-knop{background:#1b5e36;color:#fff}
+  .dicht-knop{background:#8a3f06;color:#fff}
+  input,select{border:1.5px solid #c9ccd6;border-radius:10px;padding:9px 12px;min-height:44px;background:#fff}
+  .login{max-width:380px;margin:60px auto;display:flex;flex-direction:column;gap:10px}
+  .melding{padding:10px 14px;border-radius:10px;background:#eef1f8;margin:10px 0}
+  .melding.fout{background:#fdebd9;color:#8a3f06}
+  .balk{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:6px 0 16px}
+  .pil{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-weight:700}
+  .pil.open{background:#e3f3e8;color:#1b5e36}.pil.dicht{background:#eceef1;color:#3d434c}
+  .tabs{display:flex;gap:6px;border-bottom:2px solid var(--line);margin:10px 0 16px}
+  .tabs button{background:none;border-radius:0;border-bottom:3px solid transparent;color:var(--muted)}
+  .tabs button.actief{color:var(--navy);border-bottom-color:#e97132}
+  .bord{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:14px}
+  .fase{background:var(--soft);border:1px solid var(--line);border-radius:var(--r);padding:10px}
+  .fase h2{font-size:.95rem;color:var(--navy);margin:2px 4px 10px;text-transform:uppercase;letter-spacing:.06em}
+  .tegel{background:#fff;border:1.5px solid #d6dae3;border-radius:10px;padding:10px 12px;margin-bottom:10px}
+  .tegel .kop{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--navy)}
+  .tegel .nr{color:var(--muted);font-weight:600;font-size:.85rem}
+  .bol{width:16px;height:16px;border-radius:50%;display:inline-block;flex:none}
+  .bol.leeg{border:1.5px solid #9aa3b2}.bol.wens{box-shadow:0 0 0 1px #c9a000}
+  .teller{margin-left:auto;background:var(--navy);color:#fff;border-radius:999px;padding:1px 10px;font-size:.85rem}
+  .teller.nul{background:#eceef1;color:var(--muted)}
+  .voorstel{margin-top:8px;font-size:.9rem;padding:6px 8px;border-radius:8px;background:#eef1f8;display:flex;gap:6px;align-items:flex-start;text-align:left}
+  .voorstel .bol{margin-top:2px}
+  .voorstel .pijl{color:var(--muted)}
+  .detail{margin-top:8px;font-size:.88rem}
+  .detail h4{margin:8px 0 2px;font-size:.82rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .detail ul{margin:0;padding-left:18px}
+  .balkje{display:flex;gap:4px;flex-wrap:wrap;margin:2px 0}
+  .balkje span{background:#eef1f8;border-radius:6px;padding:1px 7px}
+  .legenda{display:flex;flex-wrap:wrap;gap:14px;font-size:.88rem;color:var(--muted);margin:0 0 12px}
+  .legenda span{display:inline-flex;gap:6px;align-items:center}
+  table{border-collapse:collapse;width:100%}
+  td,th{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
+  .klein{font-size:.85rem;color:var(--muted)}
+  body.presenteren{font-size:19px}
+  body.presenteren .verberg-presenteren{display:none}
+  @media (max-width:900px){.bord{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="kop">Regie werksessie</h1>
+  <div class="rechts verberg-presenteren" id="kopknoppen"></div>
+</header>
+<main id="app"></main>
+<script>
+"use strict";
+const C = window.WERKSESSIE_CONFIG;
+const sb = supabase.createClient(C.supabaseUrl, C.supabaseKey);
+const app = document.getElementById("app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const KLEUR = {ingeregeld:"groen", niet_ingeregeld:"oranje", wens:"geel", leeg:"wit", nvt:"grijs"};
+const LABEL = {ingeregeld:"Ingeregeld", niet_ingeregeld:"Niet ingeregeld", wens:"Wens / idee", leeg:"Weten we niet", nvt:"N.v.t."};
+const bol = st => `<span class="bol ${st}" style="background:var(--st-${st})" title="${LABEL[st]}"></span>`;
+const TEKST = {
+  protocol:{ja_voorrang:"ja, met voorrang", ja:"ja", nee:"nee"},
+  voor_wie:{iedereen:"iedereen", zorgpad:"bij een zorgpad", gebeurtenis:"bij een gebeurtenis"},
+  digitaal_2027:{ja:"ja", nee:"nee", weet_niet:"weet niet"},
+  al_iets:{ja:"ja", nee:"nee", weet_niet:"weet niet"},
+  digitaal_worden:{ja_wens:"ja: een wens", nee_bewust:"nee: bewust niet", weet_niet:"weet niet"},
+  actueel:{ja:"ja", nee:"nee", weet_niet:"weet niet"}
+};
+let staat = {sessie:null, bouwstenen:[], antwoorden:[], tab:"live", timer:null, open:new Set()};
+
+// ---------- inloggen ----------
+async function start() {
+  const {data:{session}} = await sb.auth.getSession();
+  if (!session) return toonLogin();
+  const {data:isB, error} = await sb.rpc("is_beheerder");
+  if (error || !isB) {
+    app.innerHTML = `<div class="login"><p class="melding fout">Dit account heeft geen toegang tot de regie.</p>
+      <button class="knop" onclick="uitloggen()">Uitloggen</button></div>`;
+    return;
+  }
+  kopKnoppen();
+  const s = new URLSearchParams(location.hash.slice(1)).get("sessie");
+  s ? openSessie(s) : toonSessies();
+}
+function toonLogin(fout) {
+  document.getElementById("kopknoppen").innerHTML = "";
+  app.innerHTML = `<form class="login" id="lf"><h2 style="color:var(--navy);margin:0">Inloggen</h2>
+    ${fout ? `<p class="melding fout">${esc(fout)}</p>` : ""}
+    <input type="email" name="email" placeholder="E-mailadres" autocomplete="username" required>
+    <input type="password" name="pw" placeholder="Wachtwoord" autocomplete="current-password" required>
+    <button class="knop groot" style="background:var(--navy);color:#fff">Inloggen</button></form>`;
+  document.getElementById("lf").onsubmit = async e => {
+    e.preventDefault();
+    const {error} = await sb.auth.signInWithPassword({email:e.target.email.value, password:e.target.pw.value});
+    error ? toonLogin("Inloggen mislukt. Controleer e-mailadres en wachtwoord.") : start();
+  };
+}
+async function uitloggen() { await sb.auth.signOut(); location.hash = ""; toonLogin(); }
+function kopKnoppen() {
+  document.getElementById("kopknoppen").innerHTML = `
+    <button class="knop licht" onclick="location.hash='';toonSessies()">Alle sessies</button>
+    <button class="knop licht" onclick="uitloggen()">Uitloggen</button>`;
+}
+
+// ---------- sessies ----------
+async function toonSessies() {
+  stopTimer();
+  document.getElementById("kop").textContent = "Regie werksessie";
+  const [{data:sessies}, {data:reizen}] = await Promise.all([
+    sb.from("sessies").select("code,titel,datum,open,reis_id").order("datum", {ascending:false}),
+    sb.from("reizen").select("id,clientreis,expertgroep").order("expertgroep")
+  ]);
+  app.innerHTML = `
+    <h2 style="color:var(--navy)">Sessies</h2>
+    <table><tr><th>Datum</th><th>Sessie</th><th>Cliëntreis</th><th>Status</th><th></th></tr>
+    ${(sessies||[]).map(s => `<tr><td>${esc(s.datum||"")}</td><td>${esc(s.titel)}<div class="klein">code ${esc(s.code)}</div></td>
+      <td>${esc((reizen||[]).find(r=>r.id===s.reis_id)?.clientreis || s.reis_id)}</td>
+      <td><span class="pil ${s.open?"open":"dicht"}">${s.open?"open":"dicht"}</span></td>
+      <td><button class="knop" onclick="location.hash='sessie=${s.code}';openSessie('${s.code}')">Openen</button></td></tr>`).join("")}
+    </table>
+    <details style="margin-top:26px"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">Nieuwe sessie aanmaken</summary>
+      <form id="nf" class="balk" style="margin-top:12px">
+        <select name="reis" required>${(reizen||[]).map(r=>`<option value="${esc(r.id)}">${esc(r.expertgroep)} — ${esc(r.clientreis)}</option>`).join("")}</select>
+        <input name="titel" placeholder="Titel, bijv. Werksessie expertgroep CP" required style="min-width:280px">
+        <input name="datum" type="date" required>
+        <button class="knop">Aanmaken</button></form>
+      <p class="klein">Na het aanmaken vraag je Claude om het Ganzenbord en de tegelvellen voor deze sessie te genereren (met de sessiecode).</p>
+    </details>`;
+  document.getElementById("nf").onsubmit = async e => {
+    e.preventDefault();
+    const a = "abcdefghijklmnopqrstuvwxyz0123456789", r = crypto.getRandomValues(new Uint8Array(10));
+    const code = [...r].map(x => a[x % 36]).join("");
+    const {error} = await sb.from("sessies").insert({code, reis_id:e.target.reis.value, titel:e.target.titel.value, datum:e.target.datum.value, open:false});
+    if (error) alert("Aanmaken mislukt: " + error.message); else toonSessies();
+  };
+}
+
+async function openSessie(code) {
+  const {data:s} = await sb.from("sessies").select("*").eq("code", code).single();
+  if (!s) return toonSessies();
+  const {data:bs} = await sb.from("bouwstenen").select("*").eq("reis_id", s.reis_id).order("nr");
+  const {data:r} = await sb.from("reizen").select("*").eq("id", s.reis_id).single();
+  staat.sessie = s; staat.reis = r; staat.bouwstenen = bs || [];
+  document.getElementById("kop").textContent = `${s.titel}`;
+  await laadAntwoorden();
+  render();
+  stopTimer(); staat.timer = setInterval(async () => { await laadAntwoorden(); render(); }, 10000);
+}
+function stopTimer() { if (staat.timer) clearInterval(staat.timer); staat.timer = null; }
+async function laadAntwoorden() {
+  const {data} = await sb.from("antwoorden").select("*").eq("sessie_code", staat.sessie.code).order("ontvangen_op");
+  staat.antwoorden = data || [];
+}
+async function zetOpen(open) {
+  const {error} = await sb.from("sessies").update({open}).eq("code", staat.sessie.code);
+  if (error) return alert("Lukt niet: " + error.message);
+  staat.sessie.open = open; render();
+}
+
+// ---------- kleurvoorstel (alleen een voorstel; de groep en Wanda beslissen) ----------
+function tel(lijst, veld) {
+  const t = {}; lijst.forEach(a => { const v = a.antwoord[veld]; if (v) t[v] = (t[v]||0) + 1; }); return t;
+}
+function meest(t) {
+  const e = Object.entries(t).sort((a,b) => b[1]-a[1]);
+  if (!e.length || (e[1] && e[1][1] === e[0][1])) return null;   // gelijkspel = geen voorstel
+  return e[0][0];
+}
+function voorstel(b, ant) {
+  if (!ant.length) return null;
+  const set = ant[0].vraagset;
+  if (set === "oranje") {
+    const t = tel(ant, "protocol"), ja = (t.ja||0) + (t.ja_voorrang||0), nee = t.nee||0;
+    if (ja > nee) return {kleur:"niet_ingeregeld", tekst:`Akkoord voor protocol 1.0${t.ja_voorrang?` (${t.ja_voorrang}× met voorrang)`:""} — blijft oranje tot het is ingeregeld`};
+    if (nee > ja) return {kleur:"nvt", tekst:"Niet in het protocol — grijs?"};
+    return {kleur:b.status, tekst:"Nog geen duidelijk akkoord"};
+  }
+  if (set === "oranje_meet") {
+    const m = meest(tel(ant, "digitaal_2027"));
+    if (m === "ja") return {kleur:"niet_ingeregeld", tekst:"Op de lijst voor Q3 2027"};
+    if (m === "nee") return {kleur:"nvt", tekst:"Niet digitaal oppakken — grijs?"};
+    return {kleur:b.status, tekst:"Nog geen duidelijk antwoord"};
+  }
+  if (set === "wit") {
+    if ((tel(ant, "al_iets").ja||0) > 0 && meest(tel(ant, "al_iets")) === "ja") return {kleur:"niet_ingeregeld", tekst:"Er is al iets — oranje?"};
+    const m = meest(tel(ant, "digitaal_worden"));
+    if (m === "ja_wens") return {kleur:"wens", tekst:"Wens — geel?"};
+    if (m === "nee_bewust") return {kleur:"nvt", tekst:"Bewust niet digitaal — grijs?"};
+    return {kleur:"leeg", tekst:"Blijft wit"};
+  }
+  const m = meest(tel(ant, "actueel"));
+  if (m === "nee") return {kleur:"leeg", tekst:"Wens niet meer actueel — wit?"};
+  return {kleur:"wens", tekst:"Wens blijft staan"};
+}
+
+function telTekst(t, map) {
+  return Object.entries(t).map(([k,v]) => `<span>${esc(map[k]||k)}: <b>${v}</b></span>`).join("");
+}
+function lijstTekst(ant, veld, extra) {
+  const items = ant.filter(a => a.antwoord[veld]).map(a =>
+    `<li>${esc(a.antwoord[veld])}${a.discipline ? ` <span class="klein">(${esc(a.discipline)})</span>` : ""}${extra ? extra(a) : ""}</li>`);
+  return items.length ? `<ul>${items.join("")}</ul>` : "";
+}
+function detail(b, ant) {
+  if (!ant.length) return `<div class="detail klein">Nog geen antwoorden.</div>`;
+  const set = ant[0].vraagset, d = [];
+  const blok = (titel, inhoud) => inhoud ? d.push(`<h4>${titel}</h4>${inhoud}`) : null;
+  if (set === "oranje") {
+    blok("Protocol 1.0", `<div class="balkje">${telTekst(tel(ant,"protocol"), TEKST.protocol)}</div>`);
+    const zp = {}; ant.forEach(a => (a.antwoord.zorgpaden||[]).forEach(z => zp[z]=(zp[z]||0)+1));
+    blok("Voor wie", `<div class="balkje">${telTekst(tel(ant,"voor_wie"), TEKST.voor_wie)}${telTekst(zp,{})}</div>`
+      + lijstTekst(ant,"zorgpad_anders") + lijstTekst(ant,"gebeurtenis"));
+    blok("Gemist", lijstTekst(ant,"gemist"));
+    blok("Letten op bij inregelen", lijstTekst(ant,"letten_op"));
+  } else if (set === "oranje_meet") {
+    blok("Digitaal oppakken in 2027", `<div class="balkje">${telTekst(tel(ant,"digitaal_2027"), TEKST.digitaal_2027)}</div>`);
+    blok("Welke meetinstrumenten", lijstTekst(ant,"welke"));
+  } else if (set === "wit") {
+    blok("Is er al iets digitaals", `<div class="balkje">${telTekst(tel(ant,"al_iets"), TEKST.al_iets)}</div>` + lijstTekst(ant,"al_iets_namelijk"));
+    blok("Moet het digitaal worden", `<div class="balkje">${telTekst(tel(ant,"digitaal_worden"), TEKST.digitaal_worden)}</div>`);
+    blok("Wat zou je willen", lijstTekst(ant,"wat_willen"));
+  } else {
+    blok("Wens nog actueel", `<div class="balkje">${telTekst(tel(ant,"actueel"), TEKST.actueel)}</div>`);
+    blok("Toevoegingen", lijstTekst(ant,"toevoegen"));
+  }
+  return `<div class="detail">${d.join("")}</div>`;
+}
+
+// ---------- weergave ----------
+function render() {
+  const s = staat.sessie, n = staat.antwoorden.length;
+  const laatst = n ? new Date(staat.antwoorden[n-1].ontvangen_op).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"}) : "–";
+  const fases = [...new Map(staat.bouwstenen.map(b => [b.fase, b.fase_naam])).entries()];
+  const perTegel = id => staat.antwoorden.filter(a => a.bouwsteen_id === id);
+  const toonDetail = staat.tab === "terugblik";
+
+  app.innerHTML = `
+    <div class="balk verberg-presenteren">
+      <span class="pil ${s.open?"open":"dicht"}">Sessie ${s.open?"open":"dicht"}</span>
+      ${s.open ? `<button class="dicht-knop groot" onclick="zetOpen(false)">Sessie sluiten</button>`
+               : `<button class="open-knop groot" onclick="zetOpen(true)">Sessie openen</button>`}
+      <span><b>${n}</b> antwoorden · laatste om ${laatst}</span>
+      <span class="klein">ververst elke 10 seconden</span>
+      <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="knop" onclick="exporteer('json')">Download antwoorden (JSON)</button>
+        <button class="knop" onclick="exporteer('csv')">Download (CSV)</button>
+        <button class="knop" onclick="presenteer()">Presenteren</button></span>
+    </div>
+    <div class="tabs verberg-presenteren">
+      <button class="${staat.tab==="live"?"actief":""}" onclick="staat.tab='live';render()">Live</button>
+      <button class="${staat.tab==="terugblik"?"actief":""}" onclick="staat.tab='terugblik';render()">Terugblik</button>
+    </div>
+    <div class="legenda">${Object.keys(LABEL).map(k => `<span>${bol(k)} ${KLEUR[k]} · ${LABEL[k]}</span>`).join("")}
+      ${toonDetail ? `<span>→ = voorstel uit de antwoorden, de groep beslist</span>` : ""}</div>
+    <div class="bord">${fases.map(([fid, fnaam]) => `
+      <section class="fase"><h2>${esc(fnaam)}</h2>
+      ${staat.bouwstenen.filter(b => b.fase === fid).map(b => {
+        const ant = perTegel(b.bouwsteen_id), v = toonDetail ? voorstel(b, ant) : null;
+        return `<div class="tegel"><div class="kop">${bol(b.status)}<span>${esc(b.naam)}</span>
+          <span class="teller ${ant.length?"":"nul"}">${ant.length}</span></div>
+          ${v ? `<div class="voorstel">${bol(b.status)}<span class="pijl">→</span>${bol(v.kleur)}<span>${esc(v.tekst)}</span></div>` : ""}
+          ${toonDetail ? detail(b, ant) : ""}</div>`; }).join("")}
+      </section>`).join("")}</div>`;
+}
+
+function presenteer() {
+  document.body.classList.toggle("presenteren");
+  staat.tab = "terugblik"; render();
+  if (document.body.classList.contains("presenteren")) {
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+    if (!document.getElementById("stoppres")) {
+      const k = document.createElement("button"); k.id = "stoppres"; k.className = "knop";
+      k.textContent = "Stop presenteren"; k.style.cssText = "position:fixed;right:14px;bottom:14px;opacity:.6";
+      k.onclick = () => { document.body.classList.remove("presenteren"); k.remove(); document.exitFullscreen?.().catch(()=>{}); };
+      document.body.appendChild(k);
+    }
+  }
+}
+
+function exporteer(soort) {
+  const s = staat.sessie, stempel = new Date().toISOString().slice(0,16).replace(/[-:T]/g,"");
+  let inhoud, type, naam;
+  if (soort === "json") {
+    inhoud = JSON.stringify({sessie:s, reis:staat.reis, bouwstenen:staat.bouwstenen, antwoorden:staat.antwoorden,
+      voorstellen:Object.fromEntries(staat.bouwstenen.map(b => [b.bouwsteen_id, voorstel(b, staat.antwoorden.filter(a=>a.bouwsteen_id===b.bouwsteen_id))])),
+      geexporteerd_op:new Date().toISOString()}, null, 2);
+    type = "application/json"; naam = `werksessie_${s.reis_id}_${s.code}_${stempel}.json`;
+  } else {
+    const kol = ["ontvangen_op","bouwsteen_id","status_bij_antwoord","vraagset","discipline","antwoord"];
+    const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+    inhoud = "﻿" + kol.join(";") + "\n" + staat.antwoorden.map(a =>
+      kol.map(k => q(k === "antwoord" ? JSON.stringify(a.antwoord) : a[k])).join(";")).join("\n");
+    type = "text/csv"; naam = `werksessie_${s.reis_id}_${s.code}_${stempel}.csv`;
+  }
+  const url = URL.createObjectURL(new Blob([inhoud], {type}));
+  const l = document.createElement("a"); l.href = url; l.download = naam; l.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+start();
+</script>
+</body>
+</html>
