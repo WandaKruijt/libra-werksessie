@@ -200,6 +200,7 @@ async function start() {
         <span class="bol ${b.status}" style="background:var(--st-${b.status})"></span>${LABEL[b.status]}</span></div>
     ${b.status_toelichting ? `<div class="kaart"><h2><span class="bol ${b.status}" style="background:var(--st-${b.status});width:11px;height:11px"></span> Waarom deze kleur</h2><p style="margin:0">${esc(b.status_toelichting)}</p></div>` : ""}
     <div class="kaart"><h2>Dit is er al (nulmeting)</h2>${lijst(b.wat_is_er_al, "Hier is nog niets over bekend. Weet jij meer? Vul het hieronder in.")}</div>
+    ${(b.toevoegingen || []).length ? `<div class="kaart"><h2>Erbij gekomen of in ontwikkeling</h2>${lijst(b.toevoegingen.map(t => t.tekst), "")}</div>` : ""}
     <div class="kaart"><h2>Aandachtspunten / gaps</h2>${lijst(b.aandachtspunten, "Geen aandachtspunten bekend.")}</div>
     ${b.volledige_tekst ? `<details class="kaart"><summary>Volledige beschrijving zoals ingevuld</summary><p>${esc(b.volledige_tekst)}</p></details>` : ""}
     <form id="f" novalidate>
