@@ -60,7 +60,38 @@
   table{border-collapse:collapse;width:100%}
   td,th{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
   .klein{font-size:.85rem;color:var(--muted)}
+  /* duidelijke status open/dicht */
+  .status{display:flex;flex-wrap:wrap;align-items:center;gap:14px 18px;padding:14px 18px;border-radius:14px;margin:4px 0 14px;border:2px solid}
+  .status.open{background:#e3f3e8;border-color:#2f9e5b;color:#1b5e36}
+  .status.dicht{background:#f1f2f4;border-color:#9aa1ab;color:#3d434c}
+  .status .lamp{width:22px;height:22px;border-radius:50%;flex:none}
+  .status.open .lamp{background:#2f9e5b;box-shadow:0 0 0 5px rgba(47,158,91,.22);animation:puls 1.6s ease-in-out infinite}
+  .status.dicht .lamp{background:#9aa1ab}
+  .status .woord{font-size:1.45rem;font-weight:800;letter-spacing:.02em}
+  .status .uitleg{font-size:.95rem}
+  .status button{margin-left:auto}
+  @keyframes puls{50%{box-shadow:0 0 0 9px rgba(47,158,91,.08)}}
+  header.open{box-shadow:inset 0 -6px 0 #2f9e5b}
+  header.dicht{box-shadow:inset 0 -6px 0 #9aa1ab}
+  .pil.open::before{content:"";width:9px;height:9px;border-radius:50%;background:#2f9e5b}
+  .pil.dicht::before{content:"";width:9px;height:9px;border-radius:50%;background:#9aa1ab}
+  /* bijdragen per indiener */
+  .uitklap{margin-top:8px;width:100%;min-height:38px;padding:6px 10px;background:#eef1f8;color:var(--navy);font-size:.9rem;text-align:left}
+  .uitklap[disabled]{opacity:.5;cursor:default}
+  .tegel.uit{border-color:var(--navy);box-shadow:0 2px 10px rgba(50,60,90,.12)}
+  .bijdragen{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+  .bijdrage{border-radius:10px;padding:10px 12px;background:var(--bkl-bg);border:1.5px solid var(--bkl);border-left-width:7px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .bijdrage .bkop{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .bijdrage .bnr{background:var(--bkl);color:#fff;border-radius:999px;padding:1px 10px;font-weight:800;font-size:.85rem}
+  .bijdrage .bwie{font-weight:700;color:var(--navy)}
+  .bijdrage .btijd{margin-left:auto;font-size:.8rem;color:var(--muted)}
+  .bijdrage dl{margin:0;display:grid;grid-template-columns:1fr;gap:4px}
+  .bijdrage dt{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:2px}
+  .bijdrage dd{margin:0;font-size:.95rem;white-space:pre-wrap}
+  .bijdrage dd.keus{font-weight:700}
+  .uitklapbalk{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
   body.presenteren{font-size:19px}
+  body.presenteren main{max-width:none}
   body.presenteren .verberg-presenteren{display:none}
   @media (max-width:900px){.bord{grid-template-columns:1fr}}
 </style>
@@ -88,6 +119,36 @@ const TEKST = {
   digitaal_worden:{ja_wens:"ja: een wens", nee_bewust:"nee: bewust niet", weet_niet:"weet niet"},
   actueel:{ja:"ja", nee:"nee", weet_niet:"weet niet"}
 };
+const BKL = [["#3b6fb6","#eef3fb"],["#c2571a","#fdf1e8"],["#2f8a57","#ebf6ef"],["#8a4fb0","#f4eefa"],["#b8860b","#fbf5e3"],["#1f8a8a","#e8f6f6"],["#b03a5b","#fbecf0"],["#5a6478","#f0f2f5"]];
+const VELDEN = {
+  oranje:[["protocol","Protocol 1.0",TEKST.protocol],["voor_wie","Voor wie",TEKST.voor_wie],["zorgpaden","Zorgpaden"],["zorgpad_anders","Ander zorgpad"],["gebeurtenis","Bij welke gebeurtenis"],["gemist","Hebben we iets gemist?"],["letten_op","Letten op bij inregelen"]],
+  oranje_meet:[["digitaal_2027","Digitaal oppakken in 2027",TEKST.digitaal_2027],["welke","Welke meetinstrumenten"]],
+  wit:[["al_iets","Is er al iets digitaals?",TEKST.al_iets],["al_iets_namelijk","Wat is er al"],["digitaal_worden","Moet het digitaal worden?",TEKST.digitaal_worden],["wat_willen","Wat zou je willen"]],
+  geel:[["actueel","Wens nog actueel?",TEKST.actueel],["toevoegen","Toevoegingen"]]
+};
+const ALLE_VELDEN = [...new Map(Object.values(VELDEN).flat().map(v => [v[0], v])).values()];
+function waardeTekst(a, v) {
+  const w = a.antwoord?.[v[0]];
+  if (w == null || w === "" || (Array.isArray(w) && !w.length)) return "";
+  if (Array.isArray(w)) return w.join(", ");
+  return v[2] ? (v[2][w] || w) : String(w);
+}
+function bijdrageKaart(a, i) {
+  const [kl, bg] = BKL[i % BKL.length];
+  const velden = VELDEN[a.vraagset] || ALLE_VELDEN;
+  const regels = velden.map(v => [v, waardeTekst(a, v)]).filter(([, t]) => t)
+    .map(([v, t]) => `<dt>${esc(v[1])}</dt><dd class="${v[2] ? "keus" : ""}">${esc(t)}</dd>`).join("");
+  const tijd = new Date(a.ontvangen_op).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+  return `<div class="bijdrage" style="--bkl:${kl};--bkl-bg:${bg}">
+    <div class="bkop"><span class="bnr">${i+1}</span><span class="bwie">${esc(a.discipline || "Geen discipline")}</span><span class="btijd">${tijd}</span></div>
+    <dl>${regels || `<dd class="klein">Geen tekst ingevuld.</dd>`}</dl></div>`;
+}
+function wisselUit(id) { staat.open.has(id) ? staat.open.delete(id) : staat.open.add(id); render(); }
+function allesUit(aan) {
+  staat.open = new Set(aan ? staat.bouwstenen.filter(b => staat.antwoorden.some(a => a.bouwsteen_id === b.bouwsteen_id)).map(b => b.bouwsteen_id) : []);
+  render();
+}
+
 let staat = {sessie:null, bouwstenen:[], antwoorden:[], tab:"live", timer:null, open:new Set()};
 
 // ---------- inloggen ----------
@@ -127,6 +188,7 @@ function kopKnoppen() {
 // ---------- sessies ----------
 async function toonSessies() {
   stopTimer();
+  document.querySelector("header").className = "";
   document.getElementById("kop").textContent = "Regie werksessie";
   const [{data:sessies}, {data:reizen}] = await Promise.all([
     sb.from("sessies").select("code,titel,datum,open,reis_id").order("datum", {ascending:false}),
@@ -255,17 +317,23 @@ function render() {
   const fases = [...new Map(staat.bouwstenen.map(b => [b.fase, b.fase_naam])).entries()];
   const perTegel = id => staat.antwoorden.filter(a => a.bouwsteen_id === id);
   const toonDetail = staat.tab === "terugblik";
+  document.querySelector("header").className = s.open ? "open" : "dicht";
 
   app.innerHTML = `
-    <div class="balk verberg-presenteren">
-      <span class="pil ${s.open?"open":"dicht"}">Sessie ${s.open?"open":"dicht"}</span>
+    <div class="status ${s.open?"open":"dicht"} verberg-presenteren" role="status">
+      <span class="lamp"></span>
+      <div><div class="woord">${s.open ? "SESSIE IS OPEN" : "SESSIE IS DICHT"}</div>
+        <div class="uitleg">${s.open ? "De QR-codes werken: deelnemers kunnen nu antwoorden insturen."
+                                     : "De QR-codes werken niet: deelnemers kunnen nu niets insturen."}</div></div>
       ${s.open ? `<button class="dicht-knop groot" onclick="zetOpen(false)">Sessie sluiten</button>`
                : `<button class="open-knop groot" onclick="zetOpen(true)">Sessie openen</button>`}
+    </div>
+    <div class="balk verberg-presenteren">
       <span><b>${n}</b> antwoorden · laatste om ${laatst}</span>
       <span class="klein">ververst elke 10 seconden</span>
       <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
         <button class="knop" onclick="exporteer('json')">Download antwoorden (JSON)</button>
-        <button class="knop" onclick="exporteer('csv')">Download (CSV)</button>
+        <button class="knop" onclick="exporteer('xlsx')">Download (Excel)</button>
         <button class="knop" onclick="presenteer()">Presenteren</button></span>
     </div>
     <div class="tabs verberg-presenteren">
@@ -274,14 +342,19 @@ function render() {
     </div>
     <div class="legenda">${Object.keys(LABEL).map(k => `<span>${bol(k)} ${KLEUR[k]} · ${LABEL[k]}</span>`).join("")}
       ${toonDetail ? `<span>→ = voorstel uit de antwoorden, de groep beslist</span>` : ""}</div>
+    ${toonDetail ? `<div class="uitklapbalk"><button class="knop" onclick="allesUit(true)">Alle bijdragen uitklappen</button>
+      <button class="knop" onclick="allesUit(false)">Alles inklappen</button></div>` : ""}
     <div class="bord">${fases.map(([fid, fnaam]) => `
       <section class="fase"><h2>${esc(fnaam)}</h2>
       ${staat.bouwstenen.filter(b => b.fase === fid).map(b => {
         const ant = perTegel(b.bouwsteen_id), v = toonDetail ? voorstel(b, ant) : null;
-        return `<div class="tegel"><div class="kop">${bol(b.status)}<span>${esc(b.naam)}</span>
+        const uit = toonDetail && ant.length && staat.open.has(b.bouwsteen_id);
+        return `<div class="tegel ${uit?"uit":""}"><div class="kop">${bol(b.status)}<span>${esc(b.naam)}</span>
           <span class="teller ${ant.length?"":"nul"}">${ant.length}</span></div>
           ${v ? `<div class="voorstel">${bol(b.status)}<span class="pijl">→</span>${bol(v.kleur)}<span>${esc(v.tekst)}</span></div>` : ""}
-          ${toonDetail ? detail(b, ant) : ""}</div>`; }).join("")}
+          ${toonDetail ? detail(b, ant) : ""}
+          ${toonDetail && ant.length ? `<button class="uitklap" aria-expanded="${uit}" onclick="wisselUit('${esc(b.bouwsteen_id)}')">${uit ? "▴ Bijdragen inklappen" : `▾ Toon ${ant.length} ${ant.length===1?"bijdrage":"bijdragen"} per indiener`}</button>` : ""}
+          ${uit ? `<div class="bijdragen">${ant.map(bijdrageKaart).join("")}</div>` : ""}</div>`; }).join("")}
       </section>`).join("")}</div>`;
 }
 
@@ -299,8 +372,55 @@ function presenteer() {
   }
 }
 
+function laadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  return new Promise((ok, nok) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    sc.onload = ok; sc.onerror = () => nok(new Error("Excel-bibliotheek kon niet laden"));
+    document.head.appendChild(sc);
+  });
+}
+async function exporteerExcel(stempel) {
+  try { await laadXlsx(); } catch (e) { return alert(e.message + ". Probeer het opnieuw of gebruik de JSON-download."); }
+  const s = staat.sessie, bs = staat.bouwstenen, fase = Object.fromEntries(bs.map(b => [b.bouwsteen_id, b]));
+  const SET = {oranje:"oranje", oranje_meet:"oranje (meetinstrument)", wit:"wit", geel:"geel"};
+  const teller = {};
+  const rijen = staat.antwoorden.map(a => {
+    const b = fase[a.bouwsteen_id] || {}; teller[a.bouwsteen_id] = (teller[a.bouwsteen_id]||0) + 1;
+    const r = {"Ontvangen op": new Date(a.ontvangen_op).toLocaleString("nl-NL"), "Fase": b.fase_naam || "",
+      "Nr": b.nr ?? "", "Bouwsteen": b.naam || a.bouwsteen_id, "Bijdrage": teller[a.bouwsteen_id],
+      "Kleur bij antwoord": KLEUR[a.status_bij_antwoord] || a.status_bij_antwoord,
+      "Vraagset": SET[a.vraagset] || a.vraagset, "Discipline": a.discipline || ""};
+    ALLE_VELDEN.forEach(v => r[v[1]] = waardeTekst(a, v));
+    return r;
+  });
+  const kop = ["Ontvangen op","Fase","Nr","Bouwsteen","Bijdrage","Kleur bij antwoord","Vraagset","Discipline", ...ALLE_VELDEN.map(v => v[1])];
+  const ws1 = XLSX.utils.json_to_sheet(rijen, {header:kop});
+  ws1["!cols"] = kop.map(k => ({wch: ["Hebben we iets gemist?","Letten op bij inregelen","Welke meetinstrumenten","Wat is er al","Wat zou je willen","Toevoegingen"].includes(k) ? 50 : k === "Bouwsteen" ? 34 : 18}));
+  ws1["!autofilter"] = {ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:Math.max(rijen.length,1), c:kop.length-1}})};
+  const per = bs.map(b => {
+    const ant = staat.antwoorden.filter(a => a.bouwsteen_id === b.bouwsteen_id), v = voorstel(b, ant);
+    return {"Fase": b.fase_naam, "Nr": b.nr, "Bouwsteen": b.naam, "Huidige kleur": KLEUR[b.status] || b.status,
+      "Aantal bijdragen": ant.length, "Voorstel kleur": v ? (KLEUR[v.kleur] || v.kleur) : "", "Voorstel": v ? v.tekst : ""};
+  });
+  const ws2 = XLSX.utils.json_to_sheet(per);
+  ws2["!cols"] = [{wch:22},{wch:5},{wch:34},{wch:14},{wch:16},{wch:14},{wch:60}];
+  const ws3 = XLSX.utils.aoa_to_sheet([["Sessie", s.titel], ["Sessiecode", s.code], ["Datum", s.datum || ""],
+    ["Cliëntreis", staat.reis?.clientreis || s.reis_id], ["Aantal bijdragen", staat.antwoorden.length],
+    ["Geëxporteerd op", new Date().toLocaleString("nl-NL")],
+    ["Let op", "De kleurvoorstellen zijn alleen een voorstel uit de antwoorden; de groep beslist."]]);
+  ws3["!cols"] = [{wch:18},{wch:80}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, "Bijdragen");
+  XLSX.utils.book_append_sheet(wb, ws2, "Per bouwsteen");
+  XLSX.utils.book_append_sheet(wb, ws3, "Sessie");
+  XLSX.writeFile(wb, `werksessie_${s.reis_id}_${s.code}_${stempel}.xlsx`);
+}
+
 function exporteer(soort) {
   const s = staat.sessie, stempel = new Date().toISOString().slice(0,16).replace(/[-:T]/g,"");
+  if (soort === "xlsx") return exporteerExcel(stempel);
   let inhoud, type, naam;
   if (soort === "json") {
     inhoud = JSON.stringify({sessie:s, reis:staat.reis, bouwstenen:staat.bouwstenen, antwoorden:staat.antwoorden,
