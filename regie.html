@@ -109,8 +109,8 @@
   .briefjes{display:flex;flex-wrap:wrap;gap:16px}
   .briefje{all:unset;box-sizing:border-box;cursor:pointer;width:220px;min-height:170px;padding:14px 14px 12px;border-radius:3px;
     display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 1px rgba(0,0,0,.08),0 8px 16px -6px rgba(0,0,0,.22);
-    transform:rotate(var(--rot));transition:transform .15s,box-shadow .15s;font-family:var(--font);color:#2d3142}
-  .briefje:hover,.briefje:focus-visible{transform:rotate(0) scale(1.04);box-shadow:0 2px 3px rgba(0,0,0,.1),0 14px 26px -8px rgba(0,0,0,.3);outline:none}
+    transition:transform .15s,box-shadow .15s;font-family:var(--font);color:#2d3142}
+  .briefje:hover,.briefje:focus-visible{transform:translateY(-3px);box-shadow:0 2px 3px rgba(0,0,0,.1),0 14px 26px -8px rgba(0,0,0,.3);outline:none}
   .briefje.wit{background:#fffdf8;border-top:10px solid #dfe3ea}
   .briefje.geel{background:#fff3a6;border-top:10px solid #f5c518}
   .briefje .woord{font-size:1.35rem;font-weight:800;line-height:1.15;color:var(--navy);word-break:break-word}
@@ -250,8 +250,7 @@ function renderWensen(forceer) {
     <div class="canvas">${perB.length ? `<div class="clusters">${perB.map(([b, ws]) => `
       <section class="cluster"><h3>${bol(b.status)}${esc(b.naam)} <span class="klein">· ${esc(b.fase_naam)}</span></h3>
         <div class="briefjes">${ws.map(w => {
-          const rot = ((w.a.id * 37) % 7 - 3) * 0.55;
-          return `<button class="briefje ${w.a.vraagset}" style="--rot:${rot}deg" onclick="staat.wensDetail=${w.a.id};renderWensen(true)">
+          return `<button class="briefje ${w.a.vraagset}" onclick="staat.wensDetail=${w.a.id};renderWensen(true)">
             <span class="woord"><mark>${esc(w.woord)}</mark></span>
             ${w.tekst.toLowerCase() === w.woord.toLowerCase() ? "" : `<span class="tekst">${markeer(w.tekst, w.woord)}</span>`}
             <span class="wie">${esc(w.a.discipline || "Geen discipline")}</span></button>`; }).join("")}</div>
