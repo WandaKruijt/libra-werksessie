@@ -90,6 +90,47 @@
   .bijdrage dd{margin:0;font-size:.95rem;white-space:pre-wrap}
   .bijdrage dd.keus{font-weight:700}
   .uitklapbalk{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+  /* wensenlijst: bord met plakbriefjes */
+  #wensen{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;background:#f4f2ee}
+  #wensen[hidden]{display:none}
+  .wkop{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:12px 20px;background:var(--navy);color:#fff}
+  .wkop h2{margin:0;font-size:1.25rem}
+  .wkop .aantal{background:rgba(255,255,255,.18);border-radius:999px;padding:2px 12px;font-weight:700}
+  .wkop .filters{display:flex;gap:6px;flex-wrap:wrap}
+  .wkop .filters button{background:rgba(255,255,255,.12);color:#fff;min-height:38px;padding:6px 12px}
+  .wkop .filters button.actief{background:#fff;color:var(--navy)}
+  .wkop .sluit{margin-left:auto}
+  .canvas{flex:1;overflow:auto;padding:26px 26px 60px;background-color:#f4f2ee;
+    background-image:radial-gradient(#d3cec6 1.2px,transparent 1.2px);background-size:22px 22px}
+  .clusters{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+  .cluster{background:rgba(255,255,255,.55);border:1.5px dashed #c9c2b8;border-radius:16px;padding:12px 14px 16px;max-width:100%}
+  .cluster h3{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-size:1rem;color:var(--navy)}
+  .cluster h3 .klein{font-weight:500}
+  .briefjes{display:flex;flex-wrap:wrap;gap:16px}
+  .briefje{all:unset;box-sizing:border-box;cursor:pointer;width:220px;min-height:170px;padding:14px 14px 12px;border-radius:3px;
+    display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 1px rgba(0,0,0,.08),0 8px 16px -6px rgba(0,0,0,.22);
+    transform:rotate(var(--rot));transition:transform .15s,box-shadow .15s;font-family:var(--font);color:#2d3142}
+  .briefje:hover,.briefje:focus-visible{transform:rotate(0) scale(1.04);box-shadow:0 2px 3px rgba(0,0,0,.1),0 14px 26px -8px rgba(0,0,0,.3);outline:none}
+  .briefje.wit{background:#fffdf8;border-top:10px solid #dfe3ea}
+  .briefje.geel{background:#fff3a6;border-top:10px solid #f5c518}
+  .briefje .woord{font-size:1.35rem;font-weight:800;line-height:1.15;color:var(--navy);word-break:break-word}
+  .briefje .tekst{font-size:.92rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+  .briefje .wie{margin-top:auto;font-size:.78rem;color:#6b7180}
+  mark{background:linear-gradient(transparent 35%,#ffb27a 35%,#ffb27a 92%,transparent 92%);color:inherit;padding:0 2px;border-radius:2px}
+  .briefje.geel mark{background:linear-gradient(transparent 35%,#ff9f5a 35%,#ff9f5a 92%,transparent 92%)}
+  .woord mark{background:linear-gradient(transparent 55%,#ffb27a 55%,#ffb27a 95%,transparent 95%)}
+  .leegbord{max-width:520px;margin:60px auto;text-align:center;color:var(--muted);font-size:1.1rem}
+  .wdetail{position:fixed;inset:0;z-index:60;background:rgba(30,34,48,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+  .wdetail .paneel{background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:22px 24px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+  .wdetail .paneel.geel{border-top:12px solid #f5c518}.wdetail .paneel.wit{border-top:12px solid #dfe3ea}
+  .wdetail .groot{font-size:2rem;font-weight:800;color:var(--navy);margin:2px 0 6px}
+  .wdetail .wens{font-size:1.15rem;line-height:1.5;white-space:pre-wrap;margin:6px 0 14px}
+  .wdetail .meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:.9rem;margin-bottom:10px}
+  .wdetail dl{margin:0 0 12px}.wdetail dt{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:8px}
+  .wdetail dd{margin:0;white-space:pre-wrap}
+  .woordkeus{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .woordkeus button{min-height:34px;padding:4px 10px;background:#eef1f8;color:var(--navy);font-weight:600}
+  .woordkeus button.actief{background:#ffb27a;color:#2d3142}
   body.presenteren{font-size:19px}
   body.presenteren main{max-width:none}
   body.presenteren .verberg-presenteren{display:none}
@@ -149,6 +190,105 @@ function allesUit(aan) {
   render();
 }
 
+// ---------- wensenlijst ----------
+const STOP = new Set(("aan al alle alles als altijd ander andere anders bij dan dat de deze die dit doen door dus een eens en er"
+ + " ge geen graag had heb hebben heeft hem het hier hij hoe hun ik in is ja je jij jou kan kunnen kun komen laat maar"
+ + " me meer men met mij mijn moet moeten na naar niet niets nog nu of om omdat ons onze ook op over per te tegen toch"
+ + " tot u uit uw van veel voor waar wat we wel welk welke wij wil willen wordt worden word zal ze zelf zich zij zijn zo"
+ + " zoals zou zouden test bijvoorbeeld bv etc echt even heel goed gewoon via iets iemand waarbij waardoor wanneer").split(" "));
+const WENSVELD = {wit:["wat_willen","Wat zou je willen?"], geel:["toevoegen","Wat zou je eraan toevoegen?"]};
+const woordenVan = t => (String(t).match(/[\p{L}][\p{L}\p{N}'-]*/gu) || []);
+function lees(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function schrijf(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+function wensen() {
+  const lijst = staat.antwoorden.filter(a => WENSVELD[a.vraagset] && String(a.antwoord?.[WENSVELD[a.vraagset][0]] || "").trim())
+    .map(a => ({a, tekst: String(a.antwoord[WENSVELD[a.vraagset][0]]).trim()}));
+  const df = {};
+  lijst.forEach(w => new Set(woordenVan(w.tekst).map(x => x.toLowerCase())).forEach(x => df[x] = (df[x]||0) + 1));
+  lijst.forEach(w => {
+    const eigen = lees("wenswoord:" + w.a.id);
+    if (eigen && woordenVan(w.tekst).some(x => x.toLowerCase() === eigen.toLowerCase())) { w.woord = eigen; return; }
+    let best = null, score = -1;
+    woordenVan(w.tekst).forEach((x, i) => {
+      const l = x.toLowerCase(); if (STOP.has(l) || l.length < 3 || /^\d+$/.test(l)) return;
+      const sc = Math.log(1 + lijst.length / df[l]) + Math.min(l.length, 12) / 5 - i * 0.02;
+      if (sc > score) { score = sc; best = x; }
+    });
+    w.woord = best || woordenVan(w.tekst)[0] || w.tekst.slice(0, 20);
+  });
+  return lijst;
+}
+function markeer(tekst, woord) {
+  const t = esc(tekst); if (!woord) return t;
+  const re = new RegExp(`(^|[^\\p{L}])(${esc(woord).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})(?![\\p{L}])`, "iu");
+  return t.replace(re, "$1<mark>$2</mark>");
+}
+function toonWensen(aan) {
+  staat.wensen = aan; staat.wensDetail = null; staat.wensSig = null;
+  if (aan) document.documentElement.requestFullscreen?.().catch(()=>{});
+  else if (!document.body.classList.contains("presenteren")) document.exitFullscreen?.().catch(()=>{});
+  renderWensen(true);
+}
+function renderWensen(forceer) {
+  let el = document.getElementById("wensen");
+  if (!el) { el = document.createElement("div"); el.id = "wensen"; document.body.appendChild(el); }
+  if (!staat.wensen) { el.hidden = true; el.innerHTML = ""; return; }
+  const lijst = wensen(), f = staat.wensFilter || "alle";
+  const sig = JSON.stringify([f, staat.wensDetail, lijst.map(w => [w.a.id, w.woord])]);
+  if (!forceer && sig === staat.wensSig) return;
+  staat.wensSig = sig;
+  const scroll = el.querySelector(".canvas")?.scrollTop || 0;
+  const zicht = lijst.filter(w => f === "alle" || w.a.vraagset === f);
+  const perB = staat.bouwstenen.map(b => [b, zicht.filter(w => w.a.bouwsteen_id === b.bouwsteen_id)]).filter(([, ws]) => ws.length);
+  const n = k => lijst.filter(w => k === "alle" || w.a.vraagset === k).length;
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="wkop"><h2>Wensenlijst</h2><span class="aantal">${zicht.length} ${zicht.length===1?"wens":"wensen"}</span>
+      <div class="filters">${[["alle","Alle"],["wit","Uit witte bouwstenen"],["geel","Uit gele bouwstenen"]].map(([k,t]) =>
+        `<button class="${f===k?"actief":""}" onclick="staat.wensFilter='${k}';renderWensen(true)">${t} (${n(k)})</button>`).join("")}</div>
+      <button class="knop licht sluit" onclick="toonWensen(false)">Sluiten</button></div>
+    <div class="canvas">${perB.length ? `<div class="clusters">${perB.map(([b, ws]) => `
+      <section class="cluster"><h3>${bol(b.status)}${esc(b.naam)} <span class="klein">· ${esc(b.fase_naam)}</span></h3>
+        <div class="briefjes">${ws.map(w => {
+          const rot = ((w.a.id * 37) % 7 - 3) * 0.55;
+          return `<button class="briefje ${w.a.vraagset}" style="--rot:${rot}deg" onclick="staat.wensDetail=${w.a.id};renderWensen(true)">
+            <span class="woord"><mark>${esc(w.woord)}</mark></span>
+            ${w.tekst.toLowerCase() === w.woord.toLowerCase() ? "" : `<span class="tekst">${markeer(w.tekst, w.woord)}</span>`}
+            <span class="wie">${esc(w.a.discipline || "Geen discipline")}</span></button>`; }).join("")}</div>
+      </section>`).join("")}</div>`
+      : `<div class="leegbord">Nog geen wensen.<br>Hier komen de antwoorden op <b>"Wat zou je willen?"</b> (witte bouwstenen)
+         en <b>"Wat zou je eraan toevoegen?"</b> (gele bouwstenen).</div>`}</div>
+    ${staat.wensDetail ? wensDetail(lijst.find(w => w.a.id === staat.wensDetail)) : ""}`;
+  const c = el.querySelector(".canvas"); if (c) c.scrollTop = scroll;
+}
+function wensDetail(w) {
+  if (!w) return "";
+  const a = w.a, b = staat.bouwstenen.find(x => x.bouwsteen_id === a.bouwsteen_id) || {};
+  const tijd = new Date(a.ontvangen_op).toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});
+  const overig = (VELDEN[a.vraagset] || []).filter(v => v[0] !== WENSVELD[a.vraagset][0])
+    .map(v => [v, waardeTekst(a, v)]).filter(([, t]) => t).map(([v, t]) => `<dt>${esc(v[1])}</dt><dd>${esc(t)}</dd>`).join("");
+  const keuzes = [...new Map(woordenVan(w.tekst).filter(x => x.length > 2).map(x => [x.toLowerCase(), x])).values()];
+  return `<div class="wdetail" onclick="if(event.target===this){staat.wensDetail=null;renderWensen(true)}">
+    <div class="paneel ${a.vraagset}" role="dialog" aria-modal="true">
+      <div class="meta"><span>${bol(b.status || "leeg")} ${esc(b.naam || a.bouwsteen_id)}</span><span>${esc(b.fase_naam || "")}</span>
+        <span>${esc(a.discipline || "Geen discipline")}</span><span>${tijd}</span></div>
+      <div class="groot"><mark>${esc(w.woord)}</mark></div>
+      <dt class="klein" style="text-transform:uppercase;letter-spacing:.04em">${esc(WENSVELD[a.vraagset][1])}</dt>
+      <div class="wens">${markeer(w.tekst, w.woord)}</div>
+      ${overig ? `<dl>${overig}</dl>` : ""}
+      <details><summary class="klein" style="cursor:pointer">Ander woord uitlichten</summary>
+        <div class="woordkeus">${keuzes.map(x => `<button class="${x.toLowerCase()===w.woord.toLowerCase()?"actief":""}"
+          onclick='schrijf("wenswoord:${a.id}", ${JSON.stringify(x).replace(/'/g,"&#39;")});renderWensen(true)'>${esc(x)}</button>`).join("")}
+          <button onclick='schrijf("wenswoord:${a.id}", null);renderWensen(true)'>Automatisch</button></div></details>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button class="knop" onclick="staat.wensDetail=null;renderWensen(true)">Terug naar het bord</button></div>
+    </div></div>`;
+}
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape" || !staat.wensen) return;
+  if (staat.wensDetail) { staat.wensDetail = null; renderWensen(true); } else toonWensen(false);
+});
+
 let staat = {sessie:null, bouwstenen:[], antwoorden:[], tab:"live", timer:null, open:new Set()};
 
 // ---------- inloggen ----------
@@ -187,7 +327,7 @@ function kopKnoppen() {
 
 // ---------- sessies ----------
 async function toonSessies() {
-  stopTimer();
+  stopTimer(); if (staat.wensen) toonWensen(false);
   document.querySelector("header").className = "";
   document.getElementById("kop").textContent = "Regie werksessie";
   const [{data:sessies}, {data:reizen}] = await Promise.all([
@@ -228,7 +368,7 @@ async function openSessie(code) {
   document.getElementById("kop").textContent = `${s.titel}`;
   await laadAntwoorden();
   render();
-  stopTimer(); staat.timer = setInterval(async () => { await laadAntwoorden(); render(); }, 10000);
+  stopTimer(); staat.timer = setInterval(async () => { await laadAntwoorden(); render(); renderWensen(); }, 10000);
 }
 function stopTimer() { if (staat.timer) clearInterval(staat.timer); staat.timer = null; }
 async function laadAntwoorden() {
@@ -334,7 +474,8 @@ function render() {
       <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
         <button class="knop" onclick="exporteer('json')">Download antwoorden (JSON)</button>
         <button class="knop" onclick="exporteer('xlsx')">Download (Excel)</button>
-        <button class="knop" onclick="presenteer()">Presenteren</button></span>
+        <button class="knop" onclick="presenteer()">Presenteren</button>
+        <button class="knop" onclick="toonWensen(true)">Wensenlijst</button></span>
     </div>
     <div class="tabs verberg-presenteren">
       <button class="${staat.tab==="live"?"actief":""}" onclick="staat.tab='live';render()">Live</button>
