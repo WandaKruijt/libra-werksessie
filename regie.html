@@ -131,6 +131,39 @@
   .woordkeus{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
   .woordkeus button{min-height:34px;padding:4px 10px;background:#eef1f8;color:var(--navy);font-weight:600}
   .woordkeus button.actief{background:#ffb27a;color:#2d3142}
+  #samenvatting{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;background:#f6f8fc}
+  #samenvatting[hidden]{display:none}
+  #samenvatting .canvas{flex:1;overflow:auto;padding:20px 24px 40px}
+  #samenvatting .inhoud{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+  .sv-uitleg{color:var(--muted);max-width:80ch;margin:0}
+  .sv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:18px}
+  .sv-kaart{background:#fff;border:1px solid #e3e8f2;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .sv-kaartkop{display:flex;gap:12px;align-items:flex-start}
+  .sv-nr{flex:none;width:42px;height:42px;border-radius:50%;background:#4a505c;color:#fff;font-weight:800;font-size:1.2rem;display:grid;place-items:center}
+  .sv-titel{min-width:0}
+  .sv-fase{font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:#5c71b6}
+  .sv-kaart h2{margin:0;font-size:1.3rem;color:var(--navy)}
+  .sv-kleur{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:.95rem;border-radius:10px;padding:8px 12px;background:#f6f8fc}
+  .sv-dot{width:16px;height:16px;border-radius:50%;border:2px solid transparent;flex:none}
+  .sv-d-oranje{background:var(--st-niet_ingeregeld);border-color:var(--st-niet_ingeregeld)}
+  .sv-d-geel{background:var(--st-wens);border-color:#e0b400}
+  .sv-d-wit{background:#fff;border-color:#8a93a3}
+  .sv-d-grijs{background:var(--st-nvt);border-color:var(--st-nvt)}
+  .sv-d-groen{background:var(--st-ingeregeld);border-color:var(--st-ingeregeld)}
+  .sv-pijl,.sv-vraag{color:var(--muted)}
+  .sv-vraag{font-weight:600}
+  .sv-wens{font-size:1.06rem;font-weight:600;margin:0}
+  .sv-blok h3{margin:0 0 4px;font-size:.76rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .sv-blok ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:3px}
+  .sv-gesprek{background:#f6f8fc;border-radius:10px;padding:10px 14px}
+  .sv-gesprek h3{color:#5c71b6}
+  .sv-voet{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.85rem;color:var(--muted);border-top:1px solid #e3e8f2;padding-top:10px}
+  .sv-chip{border:1px solid #e3e8f2;border-radius:999px;padding:1px 10px;background:#f6f8fc}
+  .sv-tel{font-variant-numeric:tabular-nums;font-weight:800;color:var(--text)}
+  .sv-loopt{background:transparent;border-style:dashed}
+  .sv-loopt p{margin:0;color:var(--muted)}
+  .sv-algemeen{background:#fff;border:1px solid #e3e8f2;border-radius:14px;padding:18px 20px}
+  .sv-algemeen h2{margin:0 0 8px;font-size:1.15rem;color:var(--navy)}
   body.presenteren{font-size:19px}
   body.presenteren main{max-width:none}
   body.presenteren .verberg-presenteren{display:none}
@@ -287,6 +320,27 @@ document.addEventListener("keydown", e => {
   if (e.key !== "Escape" || !staat.wensen) return;
   if (staat.wensDetail) { staat.wensDetail = null; renderWensen(true); } else toonWensen(false);
 });
+
+// ---------- samenvatting (inhoud staat per sessie in de tabel samenvattingen; Claude schrijft die) ----------
+async function toonSamenvatting(aan) {
+  let el = document.getElementById("samenvatting");
+  if (!el) { el = document.createElement("div"); el.id = "samenvatting"; document.body.appendChild(el); }
+  staat.samenvatting = aan;
+  if (!aan) { el.hidden = true; el.innerHTML = "";
+    if (!document.body.classList.contains("presenteren")) document.exitFullscreen?.().catch(()=>{}); return; }
+  document.documentElement.requestFullscreen?.().catch(()=>{});
+  const kop = inhoud => `<div class="wkop"><h2>Samenvatting</h2><span class="aantal">${esc(staat.sessie.titel || "")}</span>
+      <button class="knop licht sluit" onclick="toonSamenvatting(false)">Sluiten</button></div>
+    <div class="canvas"><div class="inhoud">${inhoud}</div></div>`;
+  el.hidden = false; el.innerHTML = kop(`<p class="sv-uitleg">Samenvatting laden…</p>`);
+  const {data, error} = await sb.from("samenvattingen").select("html,bijgewerkt_op").eq("sessie_code", staat.sessie.code).maybeSingle();
+  if (!staat.samenvatting) return;
+  if (error) { el.innerHTML = kop(`<p class="melding fout">De samenvatting kon niet worden geladen: ${esc(error.message)}</p>`); return; }
+  if (!data) { el.innerHTML = kop(`<div class="leegbord">Nog geen samenvatting voor deze sessie.<br>Vraag Claude om de samenvatting te maken of bij te werken.</div>`); return; }
+  const t = new Date(data.bijgewerkt_op).toLocaleString("nl-NL",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"});
+  el.innerHTML = kop(data.html + `<p class="sv-uitleg">Bijgewerkt op ${t}.</p>`);
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape" && staat.samenvatting) toonSamenvatting(false); });
 
 let staat = {sessie:null, bouwstenen:[], antwoorden:[], tab:"live", timer:null, open:new Set()};
 
@@ -474,7 +528,7 @@ function render() {
         <button class="knop" onclick="exporteer('json')">Download antwoorden (JSON)</button>
         <button class="knop" onclick="exporteer('xlsx')">Download (Excel)</button>
         <button class="knop" onclick="presenteer()">Presenteren</button>
-        <button class="knop" onclick="toonWensen(true)">Wensenlijst</button></span>
+        <button class="knop" onclick="toonSamenvatting(true)">Samenvatting</button></span>
     </div>
     <div class="tabs verberg-presenteren">
       <button class="${staat.tab==="live"?"actief":""}" onclick="staat.tab='live';render()">Live</button>
