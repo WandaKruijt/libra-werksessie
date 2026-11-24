@@ -47,6 +47,15 @@
   .sub{margin:8px 0 0 12px;padding-left:12px;border-left:3px solid #dce3ef}
   .sub[hidden]{display:none}
   .melding{background:#eef1f8;border-left:4px solid var(--navy);padding:10px 12px;border-radius:8px;margin:0 0 18px}
+  .hulp{font-size:.9rem;color:var(--muted);margin:-2px 0 10px;font-weight:400}
+  .eigen{margin-top:8px}
+  .uitleg{background:#eef1f8;border-radius:10px;padding:10px 14px;margin:0 0 20px;font-size:.92rem}
+  .uitleg b{color:var(--navy)}
+  .uitleg ul{margin:6px 0 0;padding-left:18px}
+  .uitleg li{margin:2px 0}
+  details.lijst{margin-top:8px}
+  details.lijst summary{cursor:pointer;color:var(--navy);font-weight:600;min-height:32px}
+  details.lijst .keuzes{margin-top:6px}
   .privacy{font-size:.9rem;color:var(--muted);margin:0 0 12px}
   button{font:inherit;font-weight:700;border:0;border-radius:12px;min-height:52px;padding:12px 18px;cursor:pointer}
   .primair{width:100%;background:var(--navy);color:#fff}
@@ -116,8 +125,39 @@ function keuzes(naam, opties) {
     `<label class="keuze"><input type="radio" name="${naam}" value="${esc(waarde)}"> ${esc(tekst)}</label>`).join("")}</div>`;
 }
 
-function vraag(nr, titel, inhoud) {
-  return `<fieldset class="vraag"><legend><span class="nr">${nr}</span>${titel}</legend>${inhoud}</fieldset>`;
+function vraag(nr, titel, inhoud, hulp) {
+  return `<fieldset class="vraag"><legend><span class="nr">${nr}</span>${titel}</legend>`
+    + (hulp ? `<p class="hulp">${hulp}</p>` : "") + `${inhoud}</fieldset>`;
+}
+function eigen(naam, tekst) {
+  return `<input type="text" class="eigen" name="${naam}" placeholder="${esc(tekst)}">`;
+}
+
+// Disciplines: de lijsten in de bron zijn ongelijk (afkortingen, samengevoegde namen, soms leeg).
+// Hier netjes maken, zonder de bron aan te passen.
+const BASIS = ["Revalidatiearts","Fysiotherapeut","Ergotherapeut","Logopedist","Psycholoog","Maatschappelijk werker"];
+const AFK = {ra:"Revalidatiearts", ft:"Fysiotherapeut", et:"Ergotherapeut", ba:"Bewegingsagoog", mw:"Maatschappelijk werker", ps:"Psycholoog", lo:"Logopedist"};
+function discipline1(x) {
+  let t = String(x || "").replace(/[()]/g, " ").replace(/\.$/, "").replace(/\s+/g, " ").trim();
+  const k = t.toLowerCase();
+  if (!k) return [];
+  if (AFK[k]) return [AFK[k]];
+  if (/pedagogisch/.test(k) && /maatschappelijk/.test(k)) return ["Pedagogisch behandelaar", "Maatschappelijk werker"];
+  if (/fysio/.test(k) && /ergo/.test(k)) return ["Fysiotherapeut", "Ergotherapeut"];
+  if (/medisch secretariaat/.test(k)) return ["Medisch secretariaat"];
+  const regels = [[/revalidatie ?arts/, "Revalidatiearts"], [/fysio/, "Fysiotherapeut"], [/ergo/, "Ergotherapeut"],
+    [/logoped/, "Logopedist"], [/psychologisch medewerker/, "Psychologisch medewerker"], [/psycholog/, "Psycholoog"],
+    [/maatschappelijk/, "Maatschappelijk werker"], [/bewegingsagog|beweegagoog/, "Bewegingsagoog"], [/di[eë]tist/, "Diëtist"],
+    [/pedagogisch/, "Pedagogisch behandelaar"], [/cognitief/, "Cognitief revalidatietherapeut"], [/muziek/, "Muziektherapeut"],
+    [/adaptatie/, "Adaptatietechnicus"], [/^verpleging$|^verpleegkundige$/, "Verpleegkundige"]];
+  for (const [re, naam] of regels) if (re.test(k)) return [naam];
+  return [t.charAt(0).toUpperCase() + t.slice(1)];
+}
+function disciplineLijst(professionals) {
+  const uit = [];
+  (professionals && professionals.length ? professionals : BASIS).flatMap(discipline1)
+    .forEach(n => { if (!uit.includes(n)) uit.push(n); });
+  return [...uit, "Digicoach", "Anders"];
 }
 
 function vraagset(b) {
@@ -130,16 +170,25 @@ function vragenHtml(set, d) {
   if (set === "oranje") {
     const zp = (d.zorgpaden || []).map(z =>
       `<label class="keuze"><input type="checkbox" name="zorgpad" value="${esc(z)}"> ${esc(z)}</label>`).join("");
-    return vraag(1, "Hebben we iets gemist?", `<textarea name="gemist"></textarea>`)
-      + vraag(2, "Moet dit in het cliëntreis protocol 1.0?", keuzes("protocol",
-          [["ja_voorrang","Ja, met voorrang"],["ja","Ja"],["nee","Nee"]]))
+    return vraag(1, "Hebben we iets gemist?",
+        keuzes("soort", [["al","Dit doen we al, maar het staat er niet bij"],["nieuw","Nieuw idee of wens"]])
+        + `<textarea name="gemist" class="eigen" placeholder="Beschrijf het kort"></textarea>`,
+        "Kijk naar 'Dit is er al'. Ontbreekt er iets, of heb je een idee?")
+      + vraag(2, "Hoe snel wil je dit?", keuzes("protocol",
+          [["ja_voorrang","Met voorrang: dit is nu een knelpunt"],["ja","In 2027 regelen (in het cliëntreisprotocol 1.0)"],["wens","Wens: hier moeten we eerst over praten"]])
+          + eigen("protocol_toelichting", "Toelichting of iets anders…"),
+          "Hiermee bepalen we wat in het cliëntreisprotocol 1.0 komt.")
       + vraag(3, "Voor wie?", keuzes("voor_wie",
-          [["iedereen","Iedereen in deze cliëntreis"],["zorgpad","Bij een zorgpad, namelijk…"],["gebeurtenis","Bij een gebeurtenis, namelijk…"]])
-          + `<div class="sub" data-bij="voor_wie=zorgpad" hidden><div class="keuzes">${zp}</div>
-               <input type="text" name="zorgpad_anders" placeholder="Ander zorgpad…" style="margin-top:8px"></div>
+          [["iedereen","Iedereen in deze cliëntreis"],["zorgpad","Bij een of meer zorgpaden"],["gebeurtenis","Op een bepaald moment of bij een gebeurtenis"],["afhankelijk","Hangt ervan af of weet ik nog niet"]])
+          + `<div class="sub" data-bij="voor_wie=zorgpad" hidden>
+               <input type="text" name="zorgpad_anders" placeholder="Welk zorgpad? Typ het hier…">
+               ${zp ? `<details class="lijst"><summary>Of kies uit de lijst (${(d.zorgpaden || []).length})</summary><div class="keuzes">${zp}</div></details>` : ""}</div>
              <div class="sub" data-bij="voor_wie=gebeurtenis" hidden>
-               <input type="text" name="gebeurtenis" placeholder="Bijvoorbeeld: als een kind een spalk krijgt"></div>`)
-      + vraag(4, "Waar moeten we op letten bij het inregelen?", `<textarea name="letten_op"></textarea>`);
+               <input type="text" name="gebeurtenis" placeholder="Bijvoorbeeld: nieuwe spalk, diagnose gesteld, overgang naar school"></div>`
+          + eigen("voor_wie_toelichting", "Toelichting (mag ook zonder keuze)"),
+          "Kies wat het beste past, of leg het uit in je eigen woorden.")
+      + vraag(4, "Waar moeten we op letten bij het inregelen?", `<textarea name="letten_op"></textarea>`,
+          "Bijvoorbeeld: wie het doet, op welk moment, of wat er nodig is.");
   }
   if (set === "oranje_meet") {
     return `<p class="melding">Meetinstrumenten pakken we digitaal op <b>vanaf Q3 2027</b>.</p>`
@@ -149,21 +198,25 @@ function vragenHtml(set, d) {
   }
   if (set === "wit") {
     return vraag(1, "Is hier al iets digitaals?", keuzes("al_iets",
-          [["ja","Ja, namelijk…"],["nee","Nee"],["weet_niet","Weet ik niet"]])
-          + `<div class="sub" data-bij="al_iets=ja" hidden><textarea name="al_iets_namelijk" placeholder="Wat is er al?"></textarea></div>`)
+          [["ja","Ja, namelijk…"],["deels","Deels, namelijk…"],["bestaat","Het bestaat wel, maar nog niet digitaal (bijvoorbeeld op papier)"],["nee","Nee"],["weet_niet","Weet ik niet"]])
+          + `<div class="sub" data-bij="al_iets=ja|deels|bestaat" hidden><textarea name="al_iets_namelijk" placeholder="Wat is er al?"></textarea></div>`,
+          "Bellen en beeldbellen tellen ook als digitaal.")
       + vraag(2, "Moet dit voor deze doelgroep digitaal worden?", keuzes("digitaal_worden",
-          [["ja_wens","Ja: een wens"],["nee_bewust","Nee: bewust niet"],["weet_niet","Weet ik niet"]]))
-      + vraag(3, "Wat zou je willen?", `<textarea name="wat_willen"></textarea>`);
+          [["ja_wens","Ja: een wens"],["deels","Deels: een deel digitaal, een deel fysiek"],["nee_bewust","Nee: bewust niet digitaal"],["weet_niet","Weet ik niet"]]),
+          "Doen jullie dit bewust fysiek? Dan is 'nee' ook een antwoord.")
+      + vraag(3, "Wat zou je willen?", `<textarea name="wat_willen"></textarea>`,
+          "Beschrijf je idee of wens in je eigen woorden.");
   }
   return vraag(1, "Is deze wens nog actueel?", keuzes("actueel",
           [["ja","Ja"],["nee","Nee"],["weet_niet","Weet ik niet"]]))
-    + vraag(2, "Wat zou je eraan toevoegen?", `<textarea name="toevoegen"></textarea>`);
+    + vraag(2, "Wat zou je eraan toevoegen?", `<textarea name="toevoegen"></textarea>`,
+          "Wat zou je aan deze wens toevoegen of veranderen?");
 }
 
 function verzamel(form, set) {
   const f = new FormData(form), a = {};
   for (const [k, v] of f.entries()) {
-    if (k === "discipline" || k === "zorgpad") continue;
+    if (k === "discipline" || k === "discipline_anders" || k === "zorgpad") continue;
     if (String(v).trim()) a[k] = String(v).trim().slice(0, 3000);
   }
   if (set === "oranje") {
@@ -172,7 +225,7 @@ function verzamel(form, set) {
     if (a.voor_wie !== "zorgpad") delete a.zorgpad_anders;
     if (a.voor_wie !== "gebeurtenis") delete a.gebeurtenis;
   }
-  if (set === "wit" && a.al_iets !== "ja") delete a.al_iets_namelijk;
+  if (set === "wit" && !["ja","deels","bestaat"].includes(a.al_iets)) delete a.al_iets_namelijk;
   return a;
 }
 
@@ -191,7 +244,7 @@ async function start() {
 
   const b = d.bouwsteen, set = vraagset(b);
   document.title = `${b.naam} · ${d.reis}`;
-  const disciplines = [...(d.professionals || []), "Digicoach", "Anders"];
+  const disciplines = disciplineLijst(d.professionals);
   app.innerHTML = `
     <p class="eyebrow">Werksessie · ${esc(d.reis)}</p>
     <h1>${esc(b.naam)}</h1>
@@ -204,10 +257,17 @@ async function start() {
     <div class="kaart"><h2>Aandachtspunten / gaps</h2>${lijst(b.aandachtspunten, "Geen aandachtspunten bekend.")}</div>
     ${b.volledige_tekst ? `<details class="kaart"><summary>Volledige beschrijving zoals ingevuld</summary><p>${esc(b.volledige_tekst)}</p></details>` : ""}
     <form id="f" novalidate>
+      <div class="uitleg"><b>Zo vul je het in</b><ul>
+        <li>Eén idee per keer. Na het versturen kun je meteen een volgend antwoord geven.</li>
+        <li>Iedereen vult zelf in. Jullie hoeven het niet met elkaar eens te zijn.</li>
+        <li>Wat jullie al doen, mag je ook invullen.</li>
+        <li>Twijfel je of het bij deze tegel hoort? Vul het toch hier in. Wij zetten het op de goede plek.</li>
+        <li>Geen enkele vraag is verplicht.</li></ul></div>
       ${vragenHtml(set, d)}
       <div class="vraag"><label class="titel" for="discipline">Jouw discipline <span style="font-weight:400;color:var(--muted)">(niet verplicht)</span></label>
         <select id="discipline" name="discipline"><option value="">— kies —</option>
-        ${disciplines.map(x => `<option>${esc(x)}</option>`).join("")}</select></div>
+        ${disciplines.map(x => `<option>${esc(x)}</option>`).join("")}</select>
+        <input type="text" class="eigen" id="discipline_anders" name="discipline_anders" placeholder="Welke discipline?" hidden></div>
       <p class="privacy">Vul geen namen of gegevens van cliënten in. Je antwoord is anoniem.</p>
       <button class="primair" type="submit">Versturen</button>
       <div id="status"></div>
@@ -219,8 +279,9 @@ async function start() {
     form.querySelectorAll("[data-bij]").forEach(el => {
       const [k, v] = el.dataset.bij.split("=");
       const gekozen = form.querySelector(`input[name="${k}"]:checked`);
-      el.hidden = !(gekozen && gekozen.value === v);
+      el.hidden = !(gekozen && v.split("|").includes(gekozen.value));
     });
+    form.discipline_anders.hidden = form.discipline.value !== "Anders";
   });
   form.addEventListener("submit", async e => {
     e.preventDefault();
@@ -230,7 +291,8 @@ async function start() {
       status.innerHTML = `<div class="status fout">Vul minstens één vraag in.</div>`; return;
     }
     const item = {p_sessie: SESSIE, p_bouwsteen: b.id, p_inzending: uuid(), p_antwoord: antwoord,
-                  p_discipline: form.discipline.value || null};
+                  p_discipline: (form.discipline.value === "Anders" && form.discipline_anders.value.trim()
+                                 ? "Anders: " + form.discipline_anders.value.trim() : form.discipline.value) || null};
     schrijfRij([...leesRij(), item]);               // eerst op de telefoon bewaren
     const knop = form.querySelector("button.primair");
     knop.disabled = true; knop.textContent = "Bezig…";

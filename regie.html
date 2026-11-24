@@ -186,16 +186,17 @@ const KLEUR = {ingeregeld:"groen", niet_ingeregeld:"oranje", wens:"geel", leeg:"
 const LABEL = {ingeregeld:"Ingeregeld", niet_ingeregeld:"Niet ingeregeld", wens:"Wens / idee", leeg:"Weten we niet", nvt:"N.v.t."};
 const bol = st => `<span class="bol ${st}" style="background:var(--st-${st})" title="${LABEL[st]}"></span>`;
 const TEKST = {
-  protocol:{ja_voorrang:"ja, met voorrang", ja:"ja", nee:"nee"},
-  voor_wie:{iedereen:"iedereen", zorgpad:"bij een zorgpad", gebeurtenis:"bij een gebeurtenis"},
+  soort:{al:"doen we al", nieuw:"nieuw idee of wens"},
+  protocol:{ja_voorrang:"ja, met voorrang", ja:"ja (in 2027)", wens:"wens, eerst overleg", nee:"nee"},
+  voor_wie:{iedereen:"iedereen", zorgpad:"bij een zorgpad", gebeurtenis:"bij een gebeurtenis", afhankelijk:"hangt ervan af"},
   digitaal_2027:{ja:"ja", nee:"nee", weet_niet:"weet niet"},
-  al_iets:{ja:"ja", nee:"nee", weet_niet:"weet niet"},
-  digitaal_worden:{ja_wens:"ja: een wens", nee_bewust:"nee: bewust niet", weet_niet:"weet niet"},
+  al_iets:{ja:"ja", deels:"deels", bestaat:"bestaat, nog niet digitaal", nee:"nee", weet_niet:"weet niet"},
+  digitaal_worden:{ja_wens:"ja: een wens", deels:"deels digitaal", nee_bewust:"nee: bewust niet", weet_niet:"weet niet"},
   actueel:{ja:"ja", nee:"nee", weet_niet:"weet niet"}
 };
 const BKL = [["#3b6fb6","#eef3fb"],["#c2571a","#fdf1e8"],["#2f8a57","#ebf6ef"],["#8a4fb0","#f4eefa"],["#b8860b","#fbf5e3"],["#1f8a8a","#e8f6f6"],["#b03a5b","#fbecf0"],["#5a6478","#f0f2f5"]];
 const VELDEN = {
-  oranje:[["protocol","Protocol 1.0",TEKST.protocol],["voor_wie","Voor wie",TEKST.voor_wie],["zorgpaden","Zorgpaden"],["zorgpad_anders","Ander zorgpad"],["gebeurtenis","Bij welke gebeurtenis"],["gemist","Hebben we iets gemist?"],["letten_op","Letten op bij inregelen"]],
+  oranje:[["protocol","Protocol 1.0",TEKST.protocol],["protocol_toelichting","Toelichting tempo"],["voor_wie","Voor wie",TEKST.voor_wie],["zorgpaden","Zorgpaden"],["zorgpad_anders","Ander zorgpad"],["gebeurtenis","Bij welke gebeurtenis"],["voor_wie_toelichting","Toelichting voor wie"],["soort","Soort",TEKST.soort],["gemist","Hebben we iets gemist?"],["letten_op","Letten op bij inregelen"]],
   oranje_meet:[["digitaal_2027","Digitaal oppakken in 2027",TEKST.digitaal_2027],["welke","Welke meetinstrumenten"]],
   wit:[["al_iets","Is er al iets digitaals?",TEKST.al_iets],["al_iets_namelijk","Wat is er al"],["digitaal_worden","Moet het digitaal worden?",TEKST.digitaal_worden],["wat_willen","Wat zou je willen"]],
   geel:[["actueel","Wens nog actueel?",TEKST.actueel],["toevoegen","Toevoegingen"]]
@@ -447,9 +448,10 @@ function voorstel(b, ant) {
   if (!ant.length) return null;
   const set = ant[0].vraagset;
   if (set === "oranje") {
-    const t = tel(ant, "protocol"), ja = (t.ja||0) + (t.ja_voorrang||0), nee = t.nee||0;
-    if (ja > nee) return {kleur:"niet_ingeregeld", tekst:`Akkoord voor protocol 1.0${t.ja_voorrang?` (${t.ja_voorrang}× met voorrang)`:""} — blijft oranje tot het is ingeregeld`};
-    if (nee > ja) return {kleur:"nvt", tekst:"Niet in het protocol — grijs?"};
+    const t = tel(ant, "protocol"), ja = (t.ja||0) + (t.ja_voorrang||0), nee = t.nee||0, wens = t.wens||0;
+    if (ja > nee + wens) return {kleur:"niet_ingeregeld", tekst:`Akkoord voor protocol 1.0${t.ja_voorrang?` (${t.ja_voorrang}× met voorrang)`:""} — blijft oranje tot het is ingeregeld`};
+    if (wens > ja && wens >= nee) return {kleur:"niet_ingeregeld", tekst:"Wens: eerst overleg nodig — blijft oranje, nog niet in protocol 1.0"};
+    if (nee > ja + wens) return {kleur:"nvt", tekst:"Niet in het protocol — grijs?"};
     return {kleur:b.status, tekst:"Nog geen duidelijk akkoord"};
   }
   if (set === "oranje_meet") {
@@ -459,9 +461,11 @@ function voorstel(b, ant) {
     return {kleur:b.status, tekst:"Nog geen duidelijk antwoord"};
   }
   if (set === "wit") {
-    if ((tel(ant, "al_iets").ja||0) > 0 && meest(tel(ant, "al_iets")) === "ja") return {kleur:"niet_ingeregeld", tekst:"Er is al iets — oranje?"};
-    const m = meest(tel(ant, "digitaal_worden"));
-    if (m === "ja_wens") return {kleur:"wens", tekst:"Wens — geel?"};
+    const ai = tel(ant, "al_iets"); if (ai.deels) { ai.ja = (ai.ja||0) + ai.deels; delete ai.deels; }
+    if ((ai.ja||0) > 0 && meest(ai) === "ja") return {kleur:"niet_ingeregeld", tekst:"Er is al iets (helemaal of deels) — oranje?"};
+    const dw = tel(ant, "digitaal_worden"); if (dw.deels) { dw.ja_wens = (dw.ja_wens||0) + dw.deels; delete dw.deels; }
+    const m = meest(dw);
+    if (m === "ja_wens") return {kleur:"wens", tekst:"Wens (helemaal of deels digitaal) — geel?"};
     if (m === "nee_bewust") return {kleur:"nvt", tekst:"Bewust niet digitaal — grijs?"};
     return {kleur:"leeg", tekst:"Blijft wit"};
   }
@@ -483,11 +487,11 @@ function detail(b, ant) {
   const set = ant[0].vraagset, d = [];
   const blok = (titel, inhoud) => inhoud ? d.push(`<h4>${titel}</h4>${inhoud}`) : null;
   if (set === "oranje") {
-    blok("Protocol 1.0", `<div class="balkje">${telTekst(tel(ant,"protocol"), TEKST.protocol)}</div>`);
+    blok("Protocol 1.0", `<div class="balkje">${telTekst(tel(ant,"protocol"), TEKST.protocol)}</div>` + lijstTekst(ant,"protocol_toelichting"));
     const zp = {}; ant.forEach(a => (a.antwoord.zorgpaden||[]).forEach(z => zp[z]=(zp[z]||0)+1));
     blok("Voor wie", `<div class="balkje">${telTekst(tel(ant,"voor_wie"), TEKST.voor_wie)}${telTekst(zp,{})}</div>`
-      + lijstTekst(ant,"zorgpad_anders") + lijstTekst(ant,"gebeurtenis"));
-    blok("Gemist", lijstTekst(ant,"gemist"));
+      + lijstTekst(ant,"zorgpad_anders") + lijstTekst(ant,"gebeurtenis") + lijstTekst(ant,"voor_wie_toelichting"));
+    blok("Gemist", lijstTekst(ant,"gemist", a => a.antwoord.soort ? ` <span class="klein">· ${esc(TEKST.soort[a.antwoord.soort] || a.antwoord.soort)}</span>` : ""));
     blok("Letten op bij inregelen", lijstTekst(ant,"letten_op"));
   } else if (set === "oranje_meet") {
     blok("Digitaal oppakken in 2027", `<div class="balkje">${telTekst(tel(ant,"digitaal_2027"), TEKST.digitaal_2027)}</div>`);
@@ -591,7 +595,7 @@ async function exporteerExcel(stempel) {
   });
   const kop = ["Ontvangen op","Fase","Nr","Bouwsteen","Bijdrage","Kleur bij antwoord","Vraagset","Discipline", ...ALLE_VELDEN.map(v => v[1])];
   const ws1 = XLSX.utils.json_to_sheet(rijen, {header:kop});
-  ws1["!cols"] = kop.map(k => ({wch: ["Hebben we iets gemist?","Letten op bij inregelen","Welke meetinstrumenten","Wat is er al","Wat zou je willen","Toevoegingen"].includes(k) ? 50 : k === "Bouwsteen" ? 34 : 18}));
+  ws1["!cols"] = kop.map(k => ({wch: ["Hebben we iets gemist?","Letten op bij inregelen","Welke meetinstrumenten","Wat is er al","Wat zou je willen","Toevoegingen","Toelichting tempo","Toelichting voor wie"].includes(k) ? 50 : k === "Bouwsteen" ? 34 : 18}));
   ws1["!autofilter"] = {ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:Math.max(rijen.length,1), c:kop.length-1}})};
   const per = bs.map(b => {
     const ant = staat.antwoorden.filter(a => a.bouwsteen_id === b.bouwsteen_id), v = voorstel(b, ant);
